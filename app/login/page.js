@@ -15,8 +15,9 @@ export default function LoginPage() {
   }, [user, loading, router]);
 
   const handleGoogleLogin = () => {
-    // DO NOT hardcode; DO NOT add redirect fallbacks — breaks auth.
-    const redirectUrl = window.location.origin + '/dashboard';
+    // Redirect to /auth/callback (NOT /dashboard) so ProtectedRoute
+    // doesn't kick us to /login before we can exchange the session_id.
+    const redirectUrl = window.location.origin + '/auth/callback';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
