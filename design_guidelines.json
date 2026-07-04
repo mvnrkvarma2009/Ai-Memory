@@ -1,0 +1,74 @@
+{
+  "theme": "Dark",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "colors": {
+    "background": "#050505",
+    "surface": "#0A0A0A",
+    "surface_elevated": "#111111",
+    "border": "#222222",
+    "border_hover": "#333333",
+    "text_primary": "#FAFAFA",
+    "text_secondary": "#A1A1AA",
+    "accent_primary": "#FAFAFA",
+    "accent_secondary": "#007AFF"
+  },
+  "typography": {
+    "heading_font": "JetBrains Mono",
+    "body_font": "Inter",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter font-medium",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-medium",
+      "h3": "text-xl sm:text-2xl tracking-tight font-medium",
+      "body": "text-base leading-relaxed text-zinc-400",
+      "label": "text-xs uppercase tracking-[0.2em] font-medium text-zinc-500"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Dense, grid-based, 'Control Room' aesthetic.",
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "grid_strategy": "grid-cols-1 md:grid-cols-4 gap-4 md:gap-6",
+    "card_style": "flat background (#0A0A0A), 1px solid border (#222222), no drop shadow. rounded-none or rounded-sm max."
+  },
+  "components": {
+    "navbar": "Glassmorphism: backdrop-blur-xl bg-black/60, 1px bottom border border-white/10. Sticky top with z-50.",
+    "buttons": {
+      "primary": "bg-white text-black hover:bg-zinc-200 transition-colors rounded-sm px-6 py-3 font-medium text-sm",
+      "secondary": "bg-transparent text-zinc-300 border border-zinc-800 hover:border-zinc-600 hover:text-white transition-all rounded-sm px-6 py-3 text-sm",
+      "accent": "bg-blue-600 text-white hover:bg-blue-700 transition-colors rounded-sm px-6 py-3 text-sm"
+    },
+    "cards": "border border-zinc-800 bg-zinc-950/50 rounded-sm p-6 hover:-translate-y-1 hover:border-zinc-600 transition-all duration-300",
+    "inputs": "bg-black border border-zinc-800 text-white rounded-sm focus:border-white focus:ring-1 focus:ring-white transition-all",
+    "badges": "bg-zinc-900 border border-zinc-800 text-zinc-300 px-2.5 py-0.5 rounded-full text-xs font-medium"
+  },
+  "animations": {
+    "hover": "transition-all duration-200 ease-in-out",
+    "entrance": "staggered fade-in-up for lists and grid items",
+    "effects": "Use subtle 'Tracing Beam' or glowing border effects on active memory packages to signify processing state."
+  },
+  "media": {
+    "images": {
+      "hero_background": {
+        "url": "https://images.pexels.com/photos/7599718/pexels-photo-7599718.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Intricate vertical wire mesh pattern for abstract tech background",
+        "usage": "Apply with heavy dark overlay (e.g., bg-black/80 or gradient) to provide subtle texture in the hero section without compromising text readability."
+      }
+    },
+    "icons_library": "lucide-react"
+  },
+  "accessibility": {
+    "contrast": "Ensure minimum 4.5:1 ratio for text.",
+    "focus": "Clear focus rings on all interactive elements. focus:ring-2 focus:ring-white/20 focus:outline-none.",
+    "test_ids": "All interactive elements MUST have data-testid attributes (e.g., data-testid='login-button', data-testid='paste-transcript-input')."
+  },
+  "instructions_to_main_agent": [
+    "Implement a deep dark theme following Archetype 4 rules. Use stark black (#050505) and white (#FAFAFA) to create a premium developer tool aesthetic.",
+    "Use 'The Grid Borders' surface strategy for the workspace and dashboard: visible grid lines, dense layout, zero border radius or max 4px (rounded-sm).",
+    "In the Hero section, use the provided abstract background image with a heavy overlay to add texture while keeping the focus on the typography.",
+    "Typography must use JetBrains Mono for headings, overlines, and labels to reinforce the 'developer tool' identity, paired with Inter for readable body text.",
+    "All components should use Shadcn but heavily customized to strip their default 'softness'—make borders 1px solid, remove large drop shadows, and use sharp corners.",
+    "Implement Google Login styling (black button, white text, subtle border) and structured views for the memory package output.",
+    "Memory package viewer must clearly demarcate sections (project goal, current state, architecture decisions, etc.) using crisp borders and mono-spaced labels.",
+    "Ensure dark/light mode toggle exists, though dark mode is the default and primary focus.",
+    "Remember to include data-testid attributes on all interactive elements as per the testing requirements."
+  ]
+}
