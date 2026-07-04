@@ -1,20 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# IDE and editors
-.idea/
-.vscode/
-
 # Dependencies
 node_modules/
-/node_modules
-/.pnp
+.pnp
 .pnp.js
 .yarn/install-state.gz
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
 
 # Testing
 /coverage
@@ -28,88 +16,53 @@ next-env.d.ts
 # Production builds
 /build
 dist/
-dist
 
-# ---------------------------------------------------------------
-# Environment files
-# ---------------------------------------------------------------
-# Ignore all local envs...
+# Env files
 .env
 .env.*
 *.env
-*.env.local
-
-# ...but ALWAYS keep the example templates checked in.
+.env.local
 !.env.example
 !**/.env.example
 
-# Credentials / secrets
-*token.json*
-*credentials.json*
-credentials.json
-*.key
-.credentials
+# Credentials
 *.pem
+*.key
+credentials.json
+*token.json*
 
-# Logs and debug files
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-dump.rdb
 
-# System files
+# System
 .DS_Store
 Thumbs.db
 
-# Python
+# IDE
+.idea/
+.vscode/
+
+# Python (kept — repo may host legacy backend/ folder)
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-venv/
 .venv/
-env/
+venv/
 .pytest_cache/
-.mypy_cache/
 .ruff_cache/
-
-# Development tools
-chainlit.md
-.chainlit
-.ipynb_checkpoints/
-.ac
 
 # Deployment
 .vercel
 
-# Data and databases
-agenthub/agents/youtube/db
+# Archives
+*.zip
+*.tar.gz
 
-# Archive files and large assets
-**/*.zip
-**/*.tar.gz
-**/*.tar
-**/*.tgz
-*.pack
-*.deb
-*.dylib
-
-# Build caches
-.cache/
-
-memory/test_credentials.md
-
-# Mobile development
-android-sdk/
-
-# ---------------------------------------------------------------
-# Emergent-agent internal files (safe to ignore in public repo)
-# ---------------------------------------------------------------
+# Emergent internal
 .emergent/
 .gitconfig
-
-# Local test reports
-test_reports/
 test_result.md
 auth_testing.md
+test_reports/
