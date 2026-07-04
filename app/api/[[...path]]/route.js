@@ -3,6 +3,12 @@ import { getDb } from '@/lib/mongodb';
 import { llmChat } from '@/lib/emergentLLM';
 import { v4 as uuid } from 'uuid';
 
+// Vercel: force Node.js runtime (mongodb driver needs Node, not Edge)
+// and allow up to 60s for LLM calls (Pro plan; free is capped at 10s).
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 // -------- helpers --------
 const COOKIE_NAME = 'session_token';
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days

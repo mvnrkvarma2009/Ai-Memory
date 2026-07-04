@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "yarn install --frozen-lockfile",
+  "functions": {
+    "app/api/**/route.js": {
+      "maxDuration": 60
+    }
+  }
+}
