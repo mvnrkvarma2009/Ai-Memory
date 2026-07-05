@@ -135,8 +135,11 @@ async function handle(req, params) {
     let parsed;
     try { parsed = parseJson(raw); }
     catch (e) {
-      console.error('Parse failure:', raw?.slice?.(0, 400));
-      return json({ detail: 'Memory engine returned an unparseable response. Please try again.' }, 502);
+      console.error('Parse failure. Raw Gemini response (first 500 chars):', raw?.slice?.(0, 500));
+      return json({
+        detail: 'Memory engine returned an unparseable response. Please try again with a shorter transcript.',
+        raw_preview: raw?.slice?.(0, 400) || null,
+      }, 502);
     }
 
     const sections = {

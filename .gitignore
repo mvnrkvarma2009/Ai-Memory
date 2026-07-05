@@ -63,3 +63,4 @@ venv/
 # Archives
 *.zip
 *.tar.gz
+.credentials
