@@ -1,7 +1,6 @@
 import './globals.css';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata = {
   title: 'AI Memory — Transfer project context between any AI',
@@ -13,10 +12,8 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <AuthProvider>
-            {children}
-            <Toaster theme="dark" position="bottom-right" toastOptions={{ className: 'font-mono text-xs' }} />
-          </AuthProvider>
+          {children}
+          <Toaster theme="dark" position="bottom-right" toastOptions={{ className: 'font-mono text-xs' }} />
         </ThemeProvider>
       </body>
     </html>

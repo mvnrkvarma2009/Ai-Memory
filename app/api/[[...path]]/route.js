@@ -1,48 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/mongodb';
-import { llmChat } from '@/lib/emergentLLM';
 import { v4 as uuid } from 'uuid';
+import { geminiGenerate } from '@/lib/gemini';
 
-// Vercel: force Node.js runtime (mongodb driver needs Node, not Edge)
-// and allow up to 60s for LLM calls (Pro plan; free is capped at 10s).
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
-
-// -------- helpers --------
-const COOKIE_NAME = 'session_token';
-const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
-const EMERGENT_AUTH_URL = 'https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data';
-
-function extractToken(req) {
-  const cookie = req.cookies.get(COOKIE_NAME);
-  if (cookie?.value) return cookie.value;
-  const auth = req.headers.get('authorization');
-  if (auth?.startsWith('Bearer ')) return auth.slice(7);
-  return null;
-}
-
-async function getCurrentUser(req) {
-  const token = extractToken(req);
-  if (!token) return null;
-  const db = await getDb();
-  const session = await db.collection('user_sessions').findOne({ session_token: token }, { projection: { _id: 0 } });
-  if (!session) return null;
-  const expiresAt = session.expires_at instanceof Date ? session.expires_at : new Date(session.expires_at);
-  if (expiresAt < new Date()) return null;
-  const user = await db.collection('users').findOne({ user_id: session.user_id }, { projection: { _id: 0 } });
-  return user || null;
-}
-
-function json(data, status = 200) {
-  return NextResponse.json(data, { status });
-}
-
-function sanitize(doc) {
-  if (!doc) return doc;
-  const { _id, ...rest } = doc;
-  return rest;
-}
 
 // -------- Memory engine prompt --------
 const MEMORY_SYSTEM_PROMPT = `You are the AI Memory Engine — a precise context-extraction system for software and product projects.
@@ -51,7 +13,7 @@ You are NOT a summarizer. Your job is to read a raw conversation between a human
 
 Extract concrete, specific, technical facts. Prefer exact names (files, functions, libraries, endpoints, models, versions) over vague descriptions. Never invent facts that are not supported by the transcript; if something is unknown, leave the field empty or note it in open_questions.
 
-You must respond with a SINGLE valid JSON object and NOTHING else — no markdown fences, no commentary. Use this exact schema:
+Respond with a SINGLE valid JSON object and NOTHING else — no markdown fences, no commentary. Use this exact schema:
 
 {
   "project_title": string,
@@ -73,13 +35,11 @@ Every array item must be a concise, standalone bullet (no numbering). Keep the h
 
 function parseJson(raw) {
   let text = String(raw || '').trim();
-  text = text.replace(/^```(json)?/, '').replace(/```$/, '').trim();
+  text = text.replace(/^```(json)?/i, '').replace(/```$/i, '').trim();
   try { return JSON.parse(text); } catch (e) {
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
-    if (start !== -1 && end > start) {
-      return JSON.parse(text.slice(start, end + 1));
-    }
+    if (start !== -1 && end > start) return JSON.parse(text.slice(start, end + 1));
     throw e;
   }
 }
@@ -133,124 +93,49 @@ ${bullets(s.next_tasks)}
 `;
 }
 
+function json(data, status = 200) { return NextResponse.json(data, { status }); }
+
 // -------- Router --------
 async function handle(req, params) {
   const path = (params?.path || []).join('/');
   const method = req.method;
 
-  // ----- Auth: POST /auth/session -----
-  if (path === 'auth/session' && method === 'POST') {
-    let sessionId = req.headers.get('x-session-id');
-    if (!sessionId) {
-      try {
-        const body = await req.json();
-        sessionId = body?.session_id;
-      } catch {}
-    }
-    if (!sessionId) return json({ detail: 'Missing session_id' }, 400);
-
-    const r = await fetch(EMERGENT_AUTH_URL, {
-      method: 'GET',
-      headers: { 'X-Session-ID': sessionId },
-    });
-    if (!r.ok) return json({ detail: 'Invalid session' }, 401);
-    const data = await r.json();
-    const email = data.email;
-    if (!email) return json({ detail: 'Malformed session data' }, 502);
-
-    const db = await getDb();
-    let user = await db.collection('users').findOne({ email }, { projection: { _id: 0 } });
-    let userId = user?.user_id;
-    if (user) {
-      await db.collection('users').updateOne(
-        { user_id: userId },
-        { $set: { name: data.name || null, picture: data.picture || null } },
-      );
-    } else {
-      userId = `user_${uuid().replace(/-/g, '').slice(0, 12)}`;
-      await db.collection('users').insertOne({
-        user_id: userId,
-        email,
-        name: data.name || null,
-        picture: data.picture || null,
-        created_at: new Date().toISOString(),
-      });
-    }
-
-    const sessionToken = data.session_token || uuid();
-    const expiresAt = new Date(Date.now() + COOKIE_MAX_AGE * 1000);
-    await db.collection('user_sessions').insertOne({
-      user_id: userId,
-      session_token: sessionToken,
-      expires_at: expiresAt,
-      created_at: new Date().toISOString(),
-    });
-
-    user = await db.collection('users').findOne({ user_id: userId }, { projection: { _id: 0 } });
-    const res = NextResponse.json(user);
-    res.cookies.set(COOKIE_NAME, sessionToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-      maxAge: COOKIE_MAX_AGE,
-    });
-    return res;
+  // Health
+  if (!path || path === '/' || path === 'health') {
+    return json({ ok: true, service: 'AI Memory', model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
   }
 
-  // ----- Auth: GET /auth/me -----
-  if (path === 'auth/me' && method === 'GET') {
-    const user = await getCurrentUser(req);
-    if (!user) return json({ detail: 'Not authenticated' }, 401);
-    return json(user);
-  }
-
-  // ----- Auth: POST /auth/logout -----
-  if (path === 'auth/logout' && method === 'POST') {
-    const token = extractToken(req);
-    if (token) {
-      const db = await getDb();
-      await db.collection('user_sessions').deleteOne({ session_token: token });
-    }
-    const res = NextResponse.json({ success: true });
-    res.cookies.set(COOKIE_NAME, '', { path: '/', maxAge: 0 });
-    return res;
-  }
-
-  // ----- Memory: POST /memory/generate -----
-  if (path === 'memory/generate' && method === 'POST') {
-    const user = await getCurrentUser(req);
-    if (!user) return json({ detail: 'Not authenticated' }, 401);
-    const body = await req.json();
+  // ----- POST /memory/generate -----
+  if ((path === 'memory/generate' || path === 'generate') && method === 'POST') {
+    const body = await req.json().catch(() => ({}));
     const transcript = String(body?.transcript || '').trim();
     if (!transcript) return json({ detail: 'Transcript is empty' }, 400);
-    if (transcript.length < 40) return json({ detail: 'Transcript is too short to build a memory package' }, 400);
+    if (transcript.length < 40) return json({ detail: 'Transcript is too short to build a useful memory package' }, 400);
 
     const sourceAi = body?.source_ai || 'Claude';
     const targetAi = body?.target_ai || 'ChatGPT';
     const titleHint = body?.project_title
       ? `\nThe user suggests the project title: "${body.project_title}".`
       : '';
+
     const userPrompt = `SOURCE AI (where this conversation happened): ${sourceAi}\nTARGET AI (who will receive the memory package): ${targetAi}\n${titleHint}\n\nTailor the handoff_prompt so it reads naturally when pasted into ${targetAi}.\n\n=== BEGIN CONVERSATION TRANSCRIPT ===\n${transcript}\n=== END CONVERSATION TRANSCRIPT ===`;
 
     let raw;
     try {
-      raw = await llmChat({
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-5',
-        systemMessage: MEMORY_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+      raw = await geminiGenerate({
+        systemPrompt: MEMORY_SYSTEM_PROMPT,
+        userPrompt,
+        temperature: 0.4,
       });
     } catch (e) {
-      console.error('LLM error:', e);
+      console.error('Gemini error:', e);
       return json({ detail: `Memory engine failed: ${e.message}` }, 502);
     }
 
     let parsed;
-    try {
-      parsed = parseJson(raw);
-    } catch (e) {
-      console.error('LLM parse failure:', raw?.slice?.(0, 400));
+    try { parsed = parseJson(raw); }
+    catch (e) {
+      console.error('Parse failure:', raw?.slice?.(0, 400));
       return json({ detail: 'Memory engine returned an unparseable response. Please try again.' }, 502);
     }
 
@@ -272,82 +157,15 @@ async function handle(req, params) {
     const title = (body?.project_title || parsed.project_title || 'Untitled Project').trim() || 'Untitled Project';
     const markdown = renderMarkdown(title, { source_ai: sourceAi, target_ai: targetAi }, sections);
 
-    const pkg = {
+    return json({
       id: uuid(),
-      user_id: user.user_id,
       project_title: title,
       source_ai: sourceAi,
       target_ai: targetAi,
       package: sections,
       markdown,
       created_at: new Date().toISOString(),
-    };
-    const db = await getDb();
-    await db.collection('memory_packages').insertOne({ ...pkg });
-    return json(pkg);
-  }
-
-  // ----- Memory: GET /memory (list) -----
-  if (path === 'memory' && method === 'GET') {
-    const user = await getCurrentUser(req);
-    if (!user) return json({ detail: 'Not authenticated' }, 401);
-    const db = await getDb();
-    const docs = await db.collection('memory_packages')
-      .find({ user_id: user.user_id }, { projection: { _id: 0 } })
-      .sort({ created_at: -1 })
-      .limit(500)
-      .toArray();
-    return json(docs);
-  }
-
-  // ----- Memory item / share: /memory/:id[/share] -----
-  const memMatch = path.match(/^memory\/([^/]+)(?:\/(share))?$/);
-  if (memMatch) {
-    const [, pkgId, sub] = memMatch;
-    const user = await getCurrentUser(req);
-    if (!user) return json({ detail: 'Not authenticated' }, 401);
-    const db = await getDb();
-
-    if (!sub && method === 'GET') {
-      const doc = await db.collection('memory_packages').findOne({ id: pkgId, user_id: user.user_id }, { projection: { _id: 0 } });
-      if (!doc) return json({ detail: 'Package not found' }, 404);
-      return json(doc);
-    }
-    if (!sub && method === 'DELETE') {
-      const r = await db.collection('memory_packages').deleteOne({ id: pkgId, user_id: user.user_id });
-      if (r.deletedCount === 0) return json({ detail: 'Package not found' }, 404);
-      return json({ success: true });
-    }
-    if (sub === 'share' && method === 'POST') {
-      const pkg = await db.collection('memory_packages').findOne({ id: pkgId, user_id: user.user_id }, { projection: { _id: 0 } });
-      if (!pkg) return json({ detail: 'Package not found' }, 404);
-      let shareId = pkg.share_id;
-      if (!shareId) {
-        shareId = uuid().replace(/-/g, '').slice(0, 12);
-        await db.collection('memory_packages').updateOne({ id: pkgId, user_id: user.user_id }, { $set: { share_id: shareId } });
-      }
-      return json({ share_id: shareId });
-    }
-    if (sub === 'share' && method === 'DELETE') {
-      const r = await db.collection('memory_packages').updateOne({ id: pkgId, user_id: user.user_id }, { $unset: { share_id: '' } });
-      if (r.matchedCount === 0) return json({ detail: 'Package not found' }, 404);
-      return json({ success: true });
-    }
-  }
-
-  // ----- Public share: GET /public/memory/:shareId -----
-  const pubMatch = path.match(/^public\/memory\/([^/]+)$/);
-  if (pubMatch && method === 'GET') {
-    const [, shareId] = pubMatch;
-    const db = await getDb();
-    const doc = await db.collection('memory_packages').findOne({ share_id: shareId }, { projection: { _id: 0, user_id: 0 } });
-    if (!doc) return json({ detail: 'Shared package not found' }, 404);
-    return json(doc);
-  }
-
-  // ----- Root -----
-  if (path === '' || path === '/') {
-    return json({ message: 'AI Memory API', status: 'ok' });
+    });
   }
 
   return json({ detail: 'Not Found', path }, 404);
@@ -358,14 +176,6 @@ export async function GET(req, ctx) {
   catch (e) { console.error('API error', e); return json({ detail: e.message || 'Internal error' }, 500); }
 }
 export async function POST(req, ctx) {
-  try { return await handle(req, await ctx.params); }
-  catch (e) { console.error('API error', e); return json({ detail: e.message || 'Internal error' }, 500); }
-}
-export async function DELETE(req, ctx) {
-  try { return await handle(req, await ctx.params); }
-  catch (e) { console.error('API error', e); return json({ detail: e.message || 'Internal error' }, 500); }
-}
-export async function PUT(req, ctx) {
   try { return await handle(req, await ctx.params); }
   catch (e) { console.error('API error', e); return json({ detail: e.message || 'Internal error' }, 500); }
 }

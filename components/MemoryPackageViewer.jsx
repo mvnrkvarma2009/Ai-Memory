@@ -1,13 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import {
   Copy, Check, FileJson, FileText, ArrowRight, Flag, Activity, Layers,
   CheckCircle2, Clock, GitBranch, ShieldAlert, Boxes, HelpCircle,
-  ListTodo, MessageSquareText, Share2, Loader2,
+  ListTodo, MessageSquareText,
 } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import api from '@/lib/api';
+import { toast } from 'sonner';
 
 function CopyButton({ getText, label }) {
   const [copied, setCopied] = useState(false);
@@ -33,69 +31,6 @@ function download(filename, content, type) {
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
-}
-
-function SharePanel({ packageId, initialShareId }) {
-  const [shareId, setShareId] = useState(initialShareId || null);
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const url = shareId && typeof window !== 'undefined' ? `${window.location.origin}/s/${shareId}` : '';
-
-  const createLink = async () => {
-    setBusy(true);
-    try {
-      const res = await api.post(`/memory/${packageId}/share`);
-      setShareId(res.data.share_id);
-      toast.success('Public link created');
-    } catch { toast.error('Could not create link'); }
-    finally { setBusy(false); }
-  };
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(url); setCopied(true); toast.success('Link copied'); setTimeout(() => setCopied(false), 1600); }
-    catch { toast.error('Copy failed'); }
-  };
-  const revoke = async () => {
-    setBusy(true);
-    try { await api.delete(`/memory/${packageId}/share`); setShareId(null); toast.success('Link revoked'); }
-    catch { toast.error('Could not revoke'); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground">
-          <Share2 className="h-3.5 w-3.5" /> Share
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
-        <p className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">Public share link</p>
-        {shareId ? (
-          <>
-            <div className="mt-3 flex gap-2">
-              <input readOnly value={url} onFocus={(e) => e.target.select()}
-                className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 font-mono text-xs outline-none" />
-              <button onClick={copy} className="inline-flex h-8 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground">
-                {copied ? <Check className="h-3.5 w-3.5 text-brand" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Anyone with this link can view a read-only copy.</p>
-            <button onClick={revoke} disabled={busy}
-              className="mt-3 text-xs text-destructive hover:underline disabled:opacity-40">Revoke link</button>
-          </>
-        ) : (
-          <>
-            <p className="mt-2 text-xs text-muted-foreground">Create a read-only link to share this memory package with anyone.</p>
-            <button onClick={createLink} disabled={busy}
-              className="mt-3 inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-2 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-40">
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
-              {busy ? 'Creating…' : 'Create public link'}
-            </button>
-          </>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 function TextSection({ icon: Icon, label, value }) {
@@ -134,7 +69,7 @@ function ListSection({ icon: Icon, label, items, ordered }) {
   );
 }
 
-export default function MemoryPackageViewer({ item, readOnly = false }) {
+export default function MemoryPackageViewer({ item }) {
   const p = item.package || {};
   const jsonStr = JSON.stringify(
     { project_title: item.project_title, source_ai: item.source_ai, target_ai: item.target_ai, ...p },
@@ -159,7 +94,6 @@ export default function MemoryPackageViewer({ item, readOnly = false }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!readOnly && <SharePanel packageId={item.id} initialShareId={item.share_id} />}
             <CopyButton label="Copy Markdown" getText={() => item.markdown} />
             <CopyButton label="Copy JSON" getText={() => jsonStr} />
             <button onClick={() => download(`${safeName}.md`, item.markdown, 'text/markdown')}

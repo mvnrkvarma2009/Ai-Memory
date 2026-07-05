@@ -17,6 +17,13 @@ next-env.d.ts
 /build
 dist/
 
+# Netlify
+.netlify/
+
+# Emergent runtime files (this project no longer uses Emergent \u2014 keep ignored)
+.emergent/
+.gitconfig
+
 # Env files
 .env
 .env.*
@@ -29,7 +36,6 @@ dist/
 *.pem
 *.key
 credentials.json
-*token.json*
 
 # Logs
 npm-debug.log*
@@ -45,25 +51,15 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Python (kept — repo may host legacy backend/ folder)
+# Python bits (not used, kept for safety)
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-.pytest_cache/
-.ruff_cache/
 
-# Deployment
+# Vercel (optional)
 .vercel
 
 # Archives
 *.zip
 *.tar.gz
-
-# Emergent internal
-.emergent/
-.gitconfig
-test_result.md
-auth_testing.md
-test_reports/
-.credentials

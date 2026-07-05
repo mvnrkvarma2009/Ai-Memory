@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------
+# Netlify configuration for AI Memory (Next.js 15 App Router)
+# ---------------------------------------------------------------
+
+[build]
+  command = "yarn build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Enables Next.js on Netlify: automatic function packaging, ISR, and
+# App Router support. See https://github.com/netlify/next-runtime
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Ensure `/api/*` requests are handled by Next.js route handlers,
+# not intercepted by Netlify's static handling.
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"

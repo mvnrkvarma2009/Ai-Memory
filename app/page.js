@@ -7,9 +7,6 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { useAuth } from '@/context/AuthContext';
-
-const HERO_BG = 'https://images.pexels.com/photos/7599718/pexels-photo-7599718.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -25,13 +22,13 @@ const features = [
   { icon: ListChecks, title: 'Structured sections', desc: 'Goal, current state, completed & pending work, architecture decisions, open questions and ordered next tasks.' },
   { icon: Repeat, title: 'Any AI to any AI', desc: 'Move context from Claude to ChatGPT to Gemini. Pick source and target — the handoff prompt adapts.' },
   { icon: FileJson, title: 'Markdown + JSON export', desc: 'Copy a paste-ready markdown package or export structured JSON for tooling and pipelines.' },
-  { icon: GitBranch, title: 'Project history', desc: 'Every package is saved to your account. Revisit any snapshot and reload full context instantly.' },
-  { icon: Lock, title: 'Private by default', desc: 'Transcripts are tied to your Google account and never shared. Your context stays yours.' },
+  { icon: GitBranch, title: 'History in your browser', desc: 'Every package is saved locally in your browser — no accounts, no servers holding your data.' },
+  { icon: Lock, title: 'No sign-up required', desc: 'Free and open. No accounts, no tracking, no data leaves your machine except the transcript you send to Gemini.' },
 ];
 
 const steps = [
   { n: '01', title: 'Paste your conversation', desc: 'Drop the raw transcript from wherever you hit a context wall — Claude, ChatGPT, Gemini or Cursor.' },
-  { n: '02', title: 'Generate the memory package', desc: 'Claude Sonnet 4.5 extracts the true project state into clean, structured sections.' },
+  { n: '02', title: 'Generate the memory package', desc: 'Google Gemini extracts the true project state into clean, structured sections.' },
   { n: '03', title: 'Paste into the new AI', desc: 'Copy the handoff prompt or full package. The next AI continues exactly where you left off.' },
 ];
 
@@ -46,24 +43,20 @@ const useCases = [
 
 export default function Landing() {
   const router = useRouter();
-  const { user } = useAuth();
-  const go = () => router.push(user ? '/dashboard' : '/login');
+  const go = () => router.push('/dashboard');
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       <section className="relative overflow-hidden border-b border-border">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.14]"
-          style={{ backgroundImage: `url(${HERO_BG})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-background/80 to-background" />
         <div className="bg-grid pointer-events-none absolute inset-0 opacity-[0.25]" />
 
         <div className="relative mx-auto max-w-7xl px-6 pb-24 pt-20 md:px-10 md:pb-32 md:pt-28">
           <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0}
             className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-            <span className="font-mono text-xs tracking-tight text-muted-foreground">AI project-memory engine</span>
+            <span className="font-mono text-xs tracking-tight text-muted-foreground">AI project-memory engine · powered by Gemini</span>
           </motion.div>
 
           <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={1}
@@ -169,7 +162,7 @@ export default function Landing() {
                 Turn your next context wall into a clean handoff.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                Sign in, paste a conversation, and generate your first memory package in under a minute.
+                No sign-up. Just paste a conversation and generate your first memory package in under a minute.
               </p>
               <button onClick={go}
                 className="group mt-8 inline-flex items-center gap-2 rounded-md bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors hover:bg-foreground/90">

@@ -1,23 +1,32 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
-  BrainCircuit, Plus, Trash2, LogOut, Loader2, ArrowRight, History, PanelLeft,
+  BrainCircuit, Plus, Trash2, Loader2, ArrowRight, History, PanelLeft, Home,
 } from 'lucide-react';
-import api from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import Workspace from '@/components/Workspace';
 import MemoryPackageViewer from '@/components/MemoryPackageViewer';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
-function HistorySidebar({ packages, activeId, onNew, onDelete, navigate }) {
+const STORAGE_KEY = 'aiMemory.packages.v1';
+
+function loadPackages() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function savePackages(list) {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+}
+
+function HistorySidebar({ packages, activeId, onSelect, onNew, onDelete, onClearAll }) {
   return (
     <div className="flex h-full flex-col">
       <button onClick={onNew}
@@ -32,12 +41,12 @@ function HistorySidebar({ packages, activeId, onNew, onDelete, navigate }) {
       <div className="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
         {packages.length === 0 && (
           <p className="px-1 py-4 text-xs leading-relaxed text-muted-foreground">
-            No packages yet. Generate your first memory package to see it here.
+            No packages yet. Generate your first memory package to see it here. History is stored locally in this browser.
           </p>
         )}
         {packages.map((p) => (
           <div key={p.id}
-            onClick={() => navigate(`/dashboard/${p.id}`)}
+            onClick={() => onSelect(p.id)}
             className={`group cursor-pointer rounded-md border p-3 transition-colors ${
               activeId === p.id ? 'border-brand/60 bg-accent' : 'border-border bg-card hover:border-foreground/30'
             }`}>
@@ -54,74 +63,59 @@ function HistorySidebar({ packages, activeId, onNew, onDelete, navigate }) {
           </div>
         ))}
       </div>
+      {packages.length > 0 && (
+        <button onClick={onClearAll}
+          className="mt-3 rounded-md border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive">
+          Clear all history
+        </button>
+      )}
     </div>
   );
 }
 
-export default function DashboardShell({ activeId }) {
-  const router = useRouter();
-  const { user, logout } = useAuth();
+export default function DashboardShell() {
   const [packages, setPackages] = useState([]);
-  const [activeItem, setActiveItem] = useState(null);
-  const [loadingItem, setLoadingItem] = useState(false);
+  const [activeId, setActiveId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const deletedIds = useRef(new Set());
-
-  const fetchList = useCallback(async () => {
-    try { const res = await api.get('/memory'); setPackages(res.data); }
-    catch (e) { if (e?.response?.status !== 401) console.error(e); }
-  }, []);
-  useEffect(() => { fetchList(); }, [fetchList]);
+  const loaded = useRef(false);
 
   useEffect(() => {
-    if (!activeId || deletedIds.current.has(activeId)) { setActiveItem(null); setLoadingItem(false); return; }
-    const found = packages.find((p) => p.id === activeId);
-    if (found) { setActiveItem(found); setLoadingItem(false); return; }
-    let cancelled = false;
-    setLoadingItem(true);
-    (async () => {
-      try {
-        const res = await api.get(`/memory/${activeId}`);
-        if (!cancelled) setActiveItem(res.data);
-      } catch (e) {
-        if (!cancelled) {
-          if (e?.response?.status !== 404) console.error(e);
-          toast.error('Package not found');
-          router.replace('/dashboard');
-        }
-      } finally { setLoadingItem(false); }
-    })();
-    return () => { cancelled = true; };
-  }, [activeId, packages, router]);
+    if (loaded.current) return;
+    loaded.current = true;
+    setPackages(loadPackages());
+  }, []);
 
-  const onGenerated = (pkg) => {
-    deletedIds.current.delete(pkg.id);
-    setPackages((prev) => [pkg, ...prev.filter((p) => p.id !== pkg.id)]);
-    router.push(`/dashboard/${pkg.id}`);
-  };
-  const onDelete = async (pkgId) => {
-    try {
-      await api.delete(`/memory/${pkgId}`);
-      deletedIds.current.add(pkgId);
-      if (activeId === pkgId) { setActiveItem(null); router.replace('/dashboard'); }
-      setPackages((prev) => prev.filter((p) => p.id !== pkgId));
-      toast.success('Package deleted');
-    } catch { toast.error('Delete failed'); }
-  };
-  const onNew = () => { setSidebarOpen(false); router.push('/dashboard'); };
-  const handleLogout = async () => { router.replace('/'); await logout(); };
+  const activeItem = activeId ? packages.find((p) => p.id === activeId) : null;
 
-  const initials = (user?.name || user?.email || 'U').slice(0, 1).toUpperCase();
+  const onGenerated = useCallback((pkg) => {
+    setPackages((prev) => {
+      const next = [pkg, ...prev.filter((p) => p.id !== pkg.id)];
+      savePackages(next);
+      return next;
+    });
+    setActiveId(pkg.id);
+  }, []);
 
-  const renderMain = () => {
-    if (loadingItem) return (
-      <div className="flex h-64 items-center justify-center rounded-md border border-border bg-card">
-        <Loader2 className="h-5 w-5 animate-spin text-brand" />
-      </div>
-    );
-    if (activeItem) return <MemoryPackageViewer item={activeItem} />;
-    return <Workspace onGenerated={onGenerated} />;
-  };
+  const onDelete = useCallback((pkgId) => {
+    setPackages((prev) => {
+      const next = prev.filter((p) => p.id !== pkgId);
+      savePackages(next);
+      return next;
+    });
+    setActiveId((cur) => (cur === pkgId ? null : cur));
+    toast.success('Package deleted');
+  }, []);
+
+  const onClearAll = useCallback(() => {
+    if (!confirm('Delete all saved memory packages from this browser?')) return;
+    setPackages([]);
+    setActiveId(null);
+    savePackages([]);
+    toast.success('History cleared');
+  }, []);
+
+  const onNew = () => { setSidebarOpen(false); setActiveId(null); };
+  const onSelect = (id) => { setSidebarOpen(false); setActiveId(id); };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -141,27 +135,10 @@ export default function DashboardShell({ activeId }) {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 transition-colors hover:border-foreground/40">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={user?.picture} alt={user?.name} />
-                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                  </Avatar>
-                  <span className="hidden max-w-[140px] truncate text-sm md:inline">{user?.name || user?.email}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <p className="text-sm font-medium">{user?.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" /> Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Link href="/"
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground">
+              <Home className="h-3.5 w-3.5" /> Home
+            </Link>
           </div>
         </div>
       </header>
@@ -169,19 +146,21 @@ export default function DashboardShell({ activeId }) {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[300px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-24 h-[calc(100vh-8rem)]">
-            <HistorySidebar packages={packages} activeId={activeId} onNew={onNew} onDelete={onDelete}
-              navigate={(to) => router.push(to)} />
+            <HistorySidebar packages={packages} activeId={activeId} onSelect={onSelect}
+              onNew={onNew} onDelete={onDelete} onClearAll={onClearAll} />
           </div>
         </aside>
         {sidebarOpen && (
           <div className="lg:hidden">
             <div className="rounded-md border border-border bg-card p-4">
-              <HistorySidebar packages={packages} activeId={activeId} onNew={onNew} onDelete={onDelete}
-                navigate={(to) => { setSidebarOpen(false); router.push(to); }} />
+              <HistorySidebar packages={packages} activeId={activeId} onSelect={onSelect}
+                onNew={onNew} onDelete={onDelete} onClearAll={onClearAll} />
             </div>
           </div>
         )}
-        <main className="min-w-0">{renderMain()}</main>
+        <main className="min-w-0">
+          {activeItem ? <MemoryPackageViewer item={activeItem} /> : <Workspace onGenerated={onGenerated} />}
+        </main>
       </div>
     </div>
   );
